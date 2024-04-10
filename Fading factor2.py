@@ -47,42 +47,42 @@ minimal_delta_threshold = abs(prices_day_0_nnSTAR_p.P_delta).quantile(0.05)
 Fill_Threshold = prices_day_0_nnSTAR_p[abs(prices_day_0_nnSTAR_p.P_delta) < minimal_delta_threshold].quantity.sum()
 Fill_total = prices_day_0_nnSTAR_p.quantity.sum()
 
+#not used this version
+# Lambda0 = Fill_Threshold/Fill_total
+# Alpha = 1.5
+# Beta = 0.6
 
-Lambda0 = Fill_Threshold/Fill_total
-Alpha = 1.5
-Beta = 0.6
-
-def calculate_lambda(lambda_0,delta,t_elapse,alpha,beta):
-    """Calculate time-dependent Poisson rate."""
-    return lambda_0 * np.exp(-alpha/beta * delta)*np.exp(-t_elapse)
+# def calculate_lambda(lambda_0,delta,t_elapse,alpha,beta):
+#     """Calculate time-dependent Poisson rate."""
+#     return lambda_0 * np.exp(-alpha/beta * delta)*np.exp(-t_elapse)
 
 
-def logistic_growth(L, k, delta):
+def logistic_growth(L, k, diff):
     """General logistic growth function for both time and distance adjustments."""
-    return L / (1 + np.exp(-k * delta))
+    return L / (1 + np.exp(-k * diff))
 
 
-def calculate_lambda_adjusted(elapsed_time, distance_to_fair_price, L_t=5, L_d=5, k_t=0.2,  k_d=0.1,):
-    """Calculate adjusted lambda based on elapsed time and distance to fair price."""
-    f_t = logistic_growth( L_t, k_t, elapsed_time)  # Time adjustment factor
-    g_d = logistic_growth( L_d, k_d, distance_to_fair_price,)  # Distance adjustment factor
-    return  np.round(f_t + g_d)
+def calculate_lambda_adjusted(elapsed_time, distance_to_fair_price,position,L_t=5,L_d=5,P_d = 10,k_t=0.2,k_d=0.1,position_mid=10):
+    """Calculate adjusted lambda based on elapsed time and distance to fair price, position."""
+    f_t = logistic_growth(L_t, k_t, elapsed_time)  # Time adjustment factor
+    g_d = logistic_growth(L_d, k_d, distance_to_fair_price)  # Distance adjustment factor
+    h_p = logistic_growth(P_d, k_d, position-position_mid)   #adjustment based on position, capped at 20, half way adjustmnt when position at 10
+    return  np.round(f_t + g_d + h_p)
 
 
-def adjust_order_price(order_p, fair_p,t_elapse,lambda_0,alpha,beta, order, adj = 1, Pos_adj = 0.2):
+def adjust_order_price(order_p, fair_p,t_elapse,order, position_cur):
     """Adjust the price of the order based on elapsed time, λ(t), and position size."""
     delta = (fair_p - order_p)
     #Lambda = calculate_lambda(lambda_0,delta,t_elapse,alpha,beta)
 
-    position_adjustment_factor = Pos_adj * order["position_size"]  #1% more aggressive per unit of position size
-    #adjustment strategy
+    #position_adjustment_factor = Pos_adj * order["position_size"]  #1% more aggressive per unit of position size
     # price_adjustment = adj * Lambda
-    price_adjustment = calculate_lambda_adjusted(t_elapse,delta)
+    price_adjustment = calculate_lambda_adjusted(t_elapse,delta, position_cur)
 
     if order["order_type"] == "sell": #position > 0
-        fair_new_price = fair_p - price_adjustment - np.floor(position_adjustment_factor)  # Decrease price more for larger positions
+        fair_new_price = fair_p - price_adjustment   # Decrease fair price more for larger positions, longer time, bigger price difference
     else:  # "buy"  Position < 0
-        fair_new_price = fair_p + price_adjustment + np.floor(position_adjustment_factor)# Increase price more for larger positions to fill orders faster
+        fair_new_price = fair_p + price_adjustment
 
     print(f"Adjusting price of order {order['order_id']} to {fair_new_price}")
     # Example: your_order_system_function_to_adjust_price(order['order_id'], new_price)
