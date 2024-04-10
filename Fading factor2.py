@@ -62,11 +62,11 @@ def logistic_growth(L, k, diff):
     return L / (1 + np.exp(-k * diff))
 
 
-def calculate_lambda_adjusted(elapsed_time, distance_to_fair_price,position, L_t=5, L_d=5, P_d=10, k_t=0.1, k_d=0.1, k_p=0.2, position_mid=10):
+def calculate_lambda_adjusted(elapsed_time, distance_to_fair_price,position_cur, L_t=5, L_d=5, P_d=10, k_t=0.2, k_d=0.2, k_p=0.4, position_mid=10):
     """Calculate adjusted lambda based on elapsed time and distance to fair price, position."""
     f_t = logistic_growth(L_t, k_t, elapsed_time)  # Time adjustment factor
     g_d = logistic_growth(L_d, k_d, distance_to_fair_price)  # Distance adjustment factor
-    h_p = logistic_growth(P_d, k_p, position-position_mid)   #adjustment based on position, capped at 20, half way adjustmnt when position at 10
+    h_p = logistic_growth(P_d, k_p, position_cur - position_mid)   #adjustment based on position, capped at 20, half way adjustmnt when position at 10
     return  np.round(f_t + g_d + h_p)
 
 
